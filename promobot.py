@@ -1,5 +1,5 @@
 """
-Telegram Promo Bot
+Telegram Promo Bo
 ==================
 Requirements: python-telegram-bot>=20.0, aiosqlite, python-dotenv, gspread, google-auth
 """
