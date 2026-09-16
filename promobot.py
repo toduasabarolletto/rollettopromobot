@@ -52,7 +52,7 @@ DB_PATH: str = os.getenv("DB_PATH", "promo_bot.db")
 # ---------------------------------------------------------------------------
 # Google Sheets setup
 # ---------------------------------------------------------------------------
-SHEET_ID = os.getenv("SHEET_ID", "")
+SHEET_ID = os.getenv("SHEET_ID", "1EZSMD7bDmarRimhpdmfaGzlFPOdXtXzaOlzMiVJppoQ")
 GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON", "")
 
 def get_sheet():
