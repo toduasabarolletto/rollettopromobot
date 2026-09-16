@@ -9,6 +9,7 @@ import asyncio
 import aiosqlite
 import os
 import json
+import base64
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 import gspread
@@ -48,6 +49,8 @@ ADMIN_ID: int = int(os.getenv("ADMIN_ID", "0"))
 MIN_AGE_MINUTES: int = 10
 MAX_AGE_HOURS: int = 24
 DB_PATH: str = os.getenv("DB_PATH", "promo_bot.db")
+# Per-user cooldown: react to a given user's "bonus" at most once per this many seconds (default 5 min).
+BONUS_COOLDOWN_SECONDS: int = int(os.getenv("BONUS_COOLDOWN_SECONDS", "300"))
 
 # ---------------------------------------------------------------------------
 # Google Sheets setup
@@ -62,7 +65,19 @@ def get_sheet():
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
         ]
-        creds_dict = json.loads(GOOGLE_CREDENTIALS_JSON)
+        raw = GOOGLE_CREDENTIALS_JSON.strip()
+        if not raw:
+            logger.error("GOOGLE_CREDENTIALS_JSON is empty — paste the service account JSON (or its base64) into the env var")
+            return None
+        # Accept both raw JSON and base64-encoded JSON (base64 avoids paste/newline issues in env vars)
+        try:
+            creds_dict = json.loads(raw)
+        except json.JSONDecodeError:
+            try:
+                creds_dict = json.loads(base64.b64decode(raw).decode("utf-8"))
+            except Exception:
+                logger.error("GOOGLE_CREDENTIALS_JSON is not valid JSON and not valid base64-encoded JSON — re-paste it (see notes)")
+                return None
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SHEET_ID).sheet1
@@ -535,6 +550,9 @@ async def handle_username_input(update: Update, context: ContextTypes.DEFAULT_TY
 # Core handler – "bonus" keyword in any discussion group
 # ---------------------------------------------------------------------------
 
+# Remembers the last time we reacted to each user's "bonus" (in-memory; cleared on restart).
+_last_bonus_response: dict[int, datetime] = {}
+
 async def handle_bonus(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
     user = update.effective_user
@@ -542,6 +560,15 @@ async def handle_bonus(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if chat.id not in DISCUSSION_GROUP_IDS.values():
         return
+
+    # Per-user cooldown: if we reacted to this user's "bonus" less than
+    # BONUS_COOLDOWN_SECONDS ago, ignore this one silently (no reply).
+    now_ts = datetime.now(timezone.utc)
+    last = _last_bonus_response.get(user.id)
+    if last is not None and (now_ts - last).total_seconds() < BONUS_COOLDOWN_SECONDS:
+        logger.debug("'bonus' from user %s ignored (cooldown active)", user.id)
+        return
+    _last_bonus_response[user.id] = now_ts
 
     logger.info("'bonus' received from user %s (%s)", user.id, user.full_name)
 
