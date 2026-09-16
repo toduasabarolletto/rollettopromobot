@@ -50,7 +50,7 @@ MIN_AGE_MINUTES: int = 10
 MAX_AGE_HOURS: int = 24
 DB_PATH: str = os.getenv("DB_PATH", "promo_bot.db")
 # Per-user cooldown: react to a given user's "bonus" at most once per this many seconds (default 5 min).
-BONUS_COOLDOWN_SECONDS: int = int(os.getenv("BONUS_COOLDOWN_SECONDS", "300"))
+BONUS_COOLDOWN_SECONDS: int = int(os.getenv("BONUS_COOLDOWN_SECONDS", "900"))
 
 # ---------------------------------------------------------------------------
 # Google Sheets setup
